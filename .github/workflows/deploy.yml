@@ -34,11 +34,21 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f api/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Deploy to ECS
+      - name: Register New Task Definition with Latest Image
         env:
           CLUSTER: ${{ secrets.ECS_CLUSTER_NAME }}
           SERVICE: ${{ secrets.ECS_SERVICE_NAME }}
           TASK_DEFINITION: ${{ secrets.TASK_DEFINITION_ARN }}
           IMAGE_URI: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
         run: |
-          aws ecs update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment
+          echo "Fetching current task definition..."
+          aws ecs describe-task-definition --task-definition $TASK_DEFINITION --query taskDefinition > new-task-def.json
+
+          echo "Updating task definition with new image..."
+          sed -i 's|"image": "[^"]*"|"image": "'$IMAGE_URI'"|g' new-task-def.json
+
+          echo "Registering new task definition..."
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query "taskDefinition.taskDefinitionArn" --output text)
+
+          echo "Updating ECS service with new task definition..."
+          aws ecs update-service --cluster $CLUSTER --service $SERVICE --task-definition $NEW_TASK_DEF_ARN --force-new-deployment
