@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/venmito-felixdasta'; // Update with your actual API URL
+const API_BASE_URL = 'https://venmito.ddns.net/venmito-felixdasta'; // Update with your actual API URL
 
 export const fetchPeople = async () => {
   try {
